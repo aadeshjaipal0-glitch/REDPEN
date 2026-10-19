@@ -1,0 +1,20 @@
+# One-click deploy on Render (needs a paid plan because the disk keeps your data).
+services:
+  - type: web
+    name: redpen
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    disk:
+      name: redpen-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: XAI_API_KEY
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: APP_SECRET
+        generateValue: true
+      - key: DATA_DIR
+        value: /app/data

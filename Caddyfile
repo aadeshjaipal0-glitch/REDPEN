@@ -1,0 +1,4 @@
+# For a VPS: replace the domain, run Caddy next to the app; it gets HTTPS certificates automatically.
+your-domain.com {
+	reverse_proxy localhost:3000
+}

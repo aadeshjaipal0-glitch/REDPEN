@@ -1,0 +1,10 @@
+{
+  "name": "redpen",
+  "version": "1.0.0",
+  "description": "Paper checking for coaching centers: access codes, admin panel, per-center data and a private Grok proxy.",
+  "private": true,
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "dev": "node --watch server.js" },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}
