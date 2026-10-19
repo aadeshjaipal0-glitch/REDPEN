@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RedPen admin</title><meta name="robots" content="noindex"><meta name="theme-color" content="#CB2824">
+<link rel="icon" href="/icon.svg">
+<style>
+:root{--bg:#FBEEE6;--ink:#1B1A19;--mute:#7A716B;--line:#EFDDD3;--red:#CB2824;--sh:0 10px 28px rgba(120,60,40,.10)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+main{max-width:980px;margin:0 auto;padding:24px 16px 60px}h1{font-size:24px;margin:0 0 4px}.mute{color:var(--mute)}
+.card{background:#fff;border-radius:18px;padding:18px;box-shadow:var(--sh);margin:16px 0}
+input{font:inherit;border:1.5px solid var(--line);border-radius:12px;padding:12px;min-width:0;background:#fff;color:var(--ink)}input:focus{outline:none;border-color:var(--red)}
+button{font:inherit;border:0;border-radius:99px;padding:10px 18px;cursor:pointer;background:var(--red);color:#fff;font-weight:600;min-height:42px}button:disabled{opacity:.5}
+button.g{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}button.d{background:#fff;color:var(--red);box-shadow:inset 0 0 0 1.5px var(--red)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.row label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--mute)}
+table{width:100%;border-collapse:collapse}th{text-align:left;font-weight:500;color:var(--mute);font-size:12px;padding:8px 6px;border-bottom:1px solid var(--line)}td{padding:10px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+.pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:600;background:#EFDDD3}.pill.on{background:#E3F3E6;color:#1d6b2f}.pill.off{background:var(--red);color:#fff}
+.scroll{overflow-x:auto}.acts{display:flex;gap:6px;flex-wrap:wrap}.acts button{padding:6px 12px;font-size:13px;min-height:34px}
+.code{font:700 26px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.1em;margin:8px 0;word-break:break-all}.err{color:var(--red);margin-top:10px;min-height:20px}
+.warn{background:#FFF3D6;border-radius:12px;padding:10px 14px;margin:10px 0;font-size:14px}.ok{background:#E3F3E6}
+.login{max-width:420px;margin:8vh auto 0}.login input{width:100%}.show{display:flex;gap:8px;align-items:center;margin:10px 0;font-size:14px;color:var(--mute)}.show input{width:auto}
+</style></head><body><main id="m"></main>
+<script>
+let T=sessionStorage.getItem('rp_admin'),C=[],ST=null,msg='',newCode=null,H=null;
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function raw(url,o={}){let r;try{r=await fetch(url,{method:o.method||'GET',headers:{'content-type':'application/json',...(T?{authorization:'Bearer '+T}:{})},body:o.body?JSON.stringify(o.body):undefined})}catch(e){throw 'network'}
+ let j={};try{j=await r.json()}catch(e){if(!r.ok)throw 'server_'+r.status}
+ if(!r.ok){if(r.status===401&&T&&url!=='/api/admin/login'){T=null;sessionStorage.removeItem('rp_admin');msg='Session ended. Please sign in again.';draw()}throw j.error||'error'}return j}
+const api=(p,o)=>raw('/api/admin'+p,o);
+function explain(e){return({network:'Cannot reach the server. Open this page from your RedPen website address (for example https://your-site.com/admin), not from a saved file.',bad_password:'Wrong password. Check for extra spaces or capital letters.',too_many_attempts:'Too many wrong attempts. Wait 15 minutes and try again.',name_required:'Enter the center name.',bad_backup:'This is not a RedPen backup file.',too_large:'This file is too large.'}[e])||('Something went wrong ('+e+').')}
+async function load(){try{[C,ST]=await Promise.all([api('/centers').then(r=>r.centers),api('/status')])}catch(e){msg=explain(e)}draw()}
+async function health(){try{H=await raw('/health')}catch(e){H={error:true}}if(!T)draw()}
+function draw(){const m=$('#m');
+ if(!T){m.innerHTML=`<form class="login card" id="f" autocomplete="on"><h1>RedPen admin</h1><p class="mute">Sign in to manage center codes.</p>
+  ${H&&H.error?'<div class="warn">The server is not answering. If you opened this file from your computer, open your website address instead.</div>':''}
+  <label class="mute" for="pw">Admin password</label><input id="pw" name="password" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" required>
+  <label class="show"><input type="checkbox" id="sh"> Show password</label>
+  <button type="submit" id="go" style="width:100%">Sign in</button><div class="err" id="er" role="alert">${esc(msg)}</div></form>`;
+  $('#sh').onchange=e=>$('#pw').type=e.target.checked?'text':'password';
+  $('#f').onsubmit=async ev=>{ev.preventDefault();const b=$('#go');b.disabled=true;b.textContent='Signing in…';
+   try{const j=await raw('/api/admin/login',{method:'POST',body:{password:$('#pw').value}});T=j.token;sessionStorage.setItem('rp_admin',T);msg='';load()}
+   catch(e){$('#er').textContent=explain(e);b.disabled=false;b.textContent='Sign in'}};
+  $('#pw').focus();return}
+ const today=new Date().toISOString().slice(0,10);
+ m.innerHTML=`<div class="row" style="justify-content:space-between"><div><h1>RedPen admin</h1><p class="mute">${C.length} center${C.length===1?'':'s'}</p></div><button class="g" id="out">Sign out</button></div>
+ ${ST&&!ST.ai?'<div class="warn"><b>AI checking is off.</b> Set the XAI_API_KEY variable on the server.</div>':''}
+ ${ST&&!ST.persistent?'<div class="warn"><b>Temporary storage.</b> Data will be lost when the server restarts. Attach a persistent disk and set DATA_DIR.</div>':''}
+ ${ST&&ST.passwordGenerated?'<div class="warn">You are using a generated admin password. Set ADMIN_PASSWORD on the server to choose your own.</div>':''}
+ ${msg?`<div class="warn">${esc(msg)}</div>`:''}
+ ${newCode?`<div class="card" style="border:2px solid var(--red)"><b>Access code for ${esc(newCode.name)}</b><div class="code">${esc(newCode.code)}</div><p class="mute">Copy it now and send it to the center. It cannot be shown again (you can create a new one later).</p><div class="row"><button id="cp">Copy code</button><button class="g" id="dis">Done</button></div></div>`:''}
+ <div class="card"><b>New center</b><div class="row" style="margin-top:10px"><label>Center name<input id="n" maxlength="80" placeholder="Star Academy"></label><label>Sheet limit<input id="l" type="number" min="0" value="500" style="width:110px"></label><label>Expires (optional)<input id="e" type="date" min="${today}"></label><button id="add">Create code</button></div></div>
+ <div class="card scroll"><table><thead><tr><th>Center</th><th>Code</th><th>Status</th><th>Used / limit</th><th>Expires</th><th></th></tr></thead><tbody>
+ ${C.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>••••-${esc(c.codeHint)}</td><td><span class="pill ${c.active?'on':'off'}">${c.active?'Active':'Off'}</span></td><td>${c.used} / ${c.limit}</td><td>${esc(c.expires||'Never')}</td>
+ <td class="acts"><button class="g" data-a="tog" data-id="${c.id}">${c.active?'Switch off':'Switch on'}</button><button class="g" data-a="lim" data-id="${c.id}">Limit</button><button class="g" data-a="exp" data-id="${c.id}">Expiry</button><button class="g" data-a="use" data-id="${c.id}">Reset usage</button><button class="g" data-a="code" data-id="${c.id}">New code</button><button class="d" data-a="del" data-id="${c.id}">Delete</button></td></tr>`).join('')||'<tr><td colspan="6" class="mute">No centers yet. Create the first one above.</td></tr>'}</tbody></table></div>
+ <div class="card"><b>Backup</b><p class="mute">Download a backup regularly. It contains all centers and projects. Keep the file private.</p><div class="row"><button class="g" id="bk">Download backup</button><button class="g" id="rs">Restore from file</button><input type="file" id="rf" accept="application/json,.json" hidden></div></div>`;
+ $('#out').onclick=()=>{T=null;sessionStorage.removeItem('rp_admin');msg='';draw()};
+ if(newCode){$('#cp').onclick=()=>navigator.clipboard&&navigator.clipboard.writeText(newCode.code).then(()=>$('#cp').textContent='Copied');$('#dis').onclick=()=>{newCode=null;draw()}}
+ $('#add').onclick=async()=>{try{const r=await api('/centers',{method:'POST',body:{name:$('#n').value,limit:$('#l').value,expires:$('#e').value}});newCode={name:r.center.name,code:r.code};msg='';await load()}catch(e){msg=explain(e);draw()}};
+ $('#bk').onclick=async()=>{try{const j=await api('/backup');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(j)],{type:'application/json'}));a.download='redpen-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove()}catch(e){msg=explain(e);draw()}};
+ $('#rs').onclick=()=>$('#rf').click();
+ $('#rf').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;if(!confirm('Restore from this backup? It REPLACES all current centers and projects.'))return;
+  try{const bk=JSON.parse(await f.text());const r=await api('/restore',{method:'POST',body:{backup:bk}});T=null;sessionStorage.removeItem('rp_admin');msg='Restored '+r.centers+' center(s).'+(r.codesOk?'':' The secret differs, so reset each center code.')+' Please sign in again.';draw()}catch(e){msg=explain(e);draw()}};
+ m.onclick=async ev=>{const b=ev.target.closest('[data-a]');if(!b)return;const id=b.dataset.id,c=C.find(x=>x.id===id),a=b.dataset.a;
+  try{
+   if(a==='tog')await api('/centers/'+id,{method:'PATCH',body:{active:!c.active}});
+   if(a==='lim'){const v=prompt('Sheet limit for '+c.name,c.limit);if(v===null)return;await api('/centers/'+id,{method:'PATCH',body:{limit:v}})}
+   if(a==='exp'){const v=prompt('Expiry date (YYYY-MM-DD), empty = never',c.expires);if(v===null)return;await api('/centers/'+id,{method:'PATCH',body:{expires:v}})}
+   if(a==='use'){if(!confirm('Reset usage to 0 for '+c.name+'?'))return;await api('/centers/'+id+'/reset-usage',{method:'POST'})}
+   if(a==='code'){if(!confirm('Create a new code for '+c.name+'? The old code stops working.'))return;const r=await api('/centers/'+id+'/reset-code',{method:'POST'});newCode={name:c.name,code:r.code}}
+   if(a==='del'){if(!confirm('Delete '+c.name+' and ALL its data? This cannot be undone.'))return;await api('/centers/'+id,{method:'DELETE'})}
+   msg='';await load()}catch(e){msg=explain(e);draw()}}}
+if(T)load();else{draw();health()}
+</script></body></html>
